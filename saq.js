@@ -32,6 +32,30 @@
             };
             log.push(suit);
             callback(test(log.length-1));
+        },
+
+        report: function() {
+
+            var result = {};
+            var def = Q.defer();
+
+            log.forEach(function(suite, i) {
+                !result[suite.title] && (result[suite.title] = {});
+                suite.cases.forEach(function(test, j) {
+                    test.assert.deferred.promise.then(function(){
+                        result[suite.title][test.title] = 'ok';
+                    }, function(){
+                        result[suite.title][test.title] = 'err';
+                    });
+
+                    if(i === log.length-1 && j === suite.cases.length-1) {
+                        def.resolve(result);
+                    }
+                });
+            });
+
+            return def.promise
+
         }
     }
 
