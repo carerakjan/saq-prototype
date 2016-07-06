@@ -1,16 +1,39 @@
 (function (){
 
     function Assert() {
+        this.execution = [Date.now()];
         this.deferred = Q.defer();
     }
+
     Assert.prototype.ok = function() {
+        if(this._fulfilled()) return;
+        this.execution.push(Date.now());
         this.deferred.resolve.apply(this.deferred, arguments);
     };
+
     Assert.prototype.fail = function() {
+        if(this._fulfilled()) return;
+        this.execution.push(Date.now());
         this.deferred.reject(this.deferred, arguments);
     };
 
-    var log = [];
+    Assert.prototype._fulfilled = function() {
+        return /^fulfilled|rejected$/.test(this._inspect().state);
+    };
+
+    Assert.prototype._inspect = function() {
+        return this.deferred.promise.inspect();
+    };
+
+    Assert.prototype._term = function(measure) {
+        var term = this.execution[1] - this.execution[0];
+        switch (measure) {
+            case 'min': term /= 60000; break;
+            case 'sec': term /= 1000; break;
+            default: measure = 'ms'; break;
+        }
+        return term + ' ' + measure;
+    };
 
     var test = function(indexOfSuite) {
         return function(caseTitle, callback) {
@@ -46,10 +69,11 @@
         log.forEach(function(suite, i) {
             !result[suite.title] && (result[suite.title] = {});
             suite.cases.forEach(function(test, j) {
+                var term = [test.assert._term('sec')];
                 test.assert.deferred.promise.then(function(){
-                    result[suite.title][test.title] = 'ok';
+                    result[suite.title][test.title] = ['ok'].concat(term);
                 }, function(){
-                    result[suite.title][test.title] = 'err';
+                    result[suite.title][test.title] = ['err'].concat(term);
                 });
 
                 if(i === log.length-1 && j === suite.cases.length-1) {
