@@ -15,49 +15,51 @@
     var test = function(indexOfSuite) {
         return function(caseTitle, callback) {
             var assert = new Assert();
-            log[indexOfSuite].cases.push({
+            this.log[indexOfSuite].cases.push({
                 title: caseTitle,
                 assert: assert
             });
             callback(assert);
-        }
+        }.bind(this);
     };
 
-    window.SAQ = {
-        log: log,
-        suite: function(suiteTitle, callback) {
-            var suit = {
-                title: suiteTitle,
-                cases: []
-            };
-            log.push(suit);
-            callback(test(log.length-1));
-        },
+    var SAQ = window.SAQ = function() {
+        this.log = [];
+    };
 
-        report: function() {
+    SAQ.prototype.suite = function(suiteTitle, callback) {
+        var suit = {
+            title: suiteTitle,
+            cases: []
+        };
+        this.log.push(suit);
+        callback(test.bind(this)(this.log.length-1));
+        return this;
+    };
 
-            var result = {};
-            var def = Q.defer();
+    SAQ.prototype.report = function() {
 
-            log.forEach(function(suite, i) {
-                !result[suite.title] && (result[suite.title] = {});
-                suite.cases.forEach(function(test, j) {
-                    test.assert.deferred.promise.then(function(){
-                        result[suite.title][test.title] = 'ok';
-                    }, function(){
-                        result[suite.title][test.title] = 'err';
-                    });
+        var result = {};
+        var def = Q.defer();
+        var log = this.log;
 
-                    if(i === log.length-1 && j === suite.cases.length-1) {
-                        def.resolve(result);
-                    }
+        log.forEach(function(suite, i) {
+            !result[suite.title] && (result[suite.title] = {});
+            suite.cases.forEach(function(test, j) {
+                test.assert.deferred.promise.then(function(){
+                    result[suite.title][test.title] = 'ok';
+                }, function(){
+                    result[suite.title][test.title] = 'err';
                 });
+
+                if(i === log.length-1 && j === suite.cases.length-1) {
+                    def.resolve(result);
+                }
             });
+        });
 
-            return def.promise
+        return def.promise
 
-        }
-    }
-
+    };
 
 })();

@@ -1,4 +1,4 @@
-SAQ.suite('Check the set of async calls', function(test) {
+var t1 = new SAQ().suite('Check the set of async calls', function(test) {
 
     test('Check if user is logged', function(assert) {
         if($('.fn-logout').length) {
