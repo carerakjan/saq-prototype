@@ -36,19 +36,35 @@
     };
 
     var test = function(indexOfSuite) {
-        return function(caseTitle, callback) {
-            var assert = new Assert();
-            this.log[indexOfSuite].cases.push({
-                title: caseTitle,
-                assert: assert
-            });
-            callback(assert);
+        return function(caseTitle, callback, options) {
+            //var assert = new Assert();
+            //this.testCases.push({'func' : callback, 'assert' : assert});
+            //this.log[indexOfSuite].cases.push({
+            //    title: caseTitle,
+            //    assert: assert
+            //});
+            //callback(assert);
+
+            var fn = function() {
+
+                if(options.async) {
+                    var deferred = Q.defer();
+                    callback(deferred);
+                    return deferred.promise;
+                }
+                return callback();
+            };
+
+            this.log[indexOfSuite].cases.push({title:caseTitle, handler: fn});
+
         }.bind(this);
     };
 
     var SAQ = window.SAQ = function() {
-        this.log = [];
+        //this.log = [];
     };
+
+    SAQ.prototype.log = [];
 
     SAQ.prototype.suite = function(suiteTitle, callback) {
         var suit = {
@@ -60,29 +76,13 @@
         return this;
     };
 
-    SAQ.prototype.report = function() {
+    SAQ.prototype.run = function() {
 
-        var result = {};
-        var def = Q.defer();
-        var log = this.log;
-
-        log.forEach(function(suite, i) {
-            !result[suite.title] && (result[suite.title] = {});
-            suite.cases.forEach(function(test, j) {
-                var term = [test.assert._term('sec')];
-                test.assert.deferred.promise.then(function(){
-                    result[suite.title][test.title] = ['ok'].concat(term);
-                }, function(){
-                    result[suite.title][test.title] = ['err'].concat(term);
-                });
-
-                if(i === log.length-1 && j === suite.cases.length-1) {
-                    def.resolve(result);
-                }
-            });
-        });
-
-        return def.promise
+        this.log.reduce(function(test, suite) {
+            return test.concat(suite.cases);
+        },[]).reduce(function(def, test) {
+            return def.then(test.handler);
+        }, Q(1))
 
     };
 
