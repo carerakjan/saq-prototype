@@ -109,9 +109,11 @@
 
         return tests.reduce(function(def, test) {
             !test.execution && (test.execution = []);
-            test.execution.push(Date.now());
 
-            return def.then(test.handler).then(function(data){
+            return def.then(function(){
+                test.execution.push(Date.now());
+                return test.handler.apply(null, arguments);
+            }).then(function(data){
                 test.execution.push(Date.now());
                 return data;
             }, function(e) {
