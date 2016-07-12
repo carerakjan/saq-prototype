@@ -1,12 +1,34 @@
 var suite = SQA.suite;
 var run = SQA.run;
 
-suite('suite1', function(test) {
+suite('xqsuite1', function(test) {
 
     test('test1', function() {
         if(1) {
 
         } else throw Error();
+    });
+
+    test('test5', function(defered) {
+
+        dslfkdsfsd.asdas();
+
+
+        setTimeout(function(){
+            try {
+            if(!1){
+                defered1.resolve();
+            } else {
+                throw Error('reject');
+            }
+
+
+            } catch(e) {
+                defered.reject(e);
+            }
+        }, 5)
+    }, {
+        async:true
     });
 
     test('test2', function(defered) {

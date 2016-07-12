@@ -73,24 +73,29 @@
             if(isBreak) return;
 
             !report[log[test.suite].title] &&
-            (report[log[test.suite].title] = {});
+            (report[log[test.suite].title] = {
+                index: test.suite,
+                tests: []
+            });
 
-            var t = report[log[test.suite].title][test.title] = [];
-            t.push(term.bind(test)('sec'));
+            var t = {title: test.title, result: []};
+            t.result.push(term.bind(test)('sec'));
             if(test.error) {
-                t.push('err');
-                t.push(test.error);
+                t.result.push('err');
+                t.result.push(test.error);
                 isBreak = true;
             } else {
-                t.push('ok');
+                t.result.push('ok');
             }
 
+            report[log[test.suite].title].tests.push(t);
         });
 
         console.log(report);
     };
 
     var run = function() {
+
 
         var tests = log.reduce(function(test, suite) {
             return test.concat(suite.cases);
@@ -125,7 +130,7 @@
             generateReport(tests);
         }, function(e) {
             generateReport(tests);
-            //console.error(e);
+            console.error(e);
         });
 
     };
