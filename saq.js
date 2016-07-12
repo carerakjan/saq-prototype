@@ -18,6 +18,10 @@
         return Q.defer();
     };
 
+    var promise = function(value) {
+        return Q(value);
+    };
+
     var term = function(measure) {
         var term = this.execution[1] - this.execution[0];
         switch (measure) {
@@ -38,12 +42,15 @@
                 suite: indexOfSuite,
                 title: caseTitle,
                 handler: function() {
+
+                    var args = [].slice.call(arguments);
+
                     if(options.async) {
                         var deferred = defer();
-                        callback(deferred);
+                        callback.apply(null, [deferred].concat(args));
                         return deferred.promise;
                     }
-                    return callback();
+                    return callback.apply(null, args);
                 }
             });
 
@@ -91,22 +98,22 @@
             report[log[test.suite].title].tests.push(t);
         });
 
-        console.log(report);
+        return report;
     };
 
     var run = function() {
-
 
         var tests = log.reduce(function(test, suite) {
             return test.concat(suite.cases);
         },[]);
 
-        tests.reduce(function(def, test) {
+        return tests.reduce(function(def, test) {
             !test.execution && (test.execution = []);
             test.execution.push(Date.now());
 
-            return def.then(test.handler).then(function(){
+            return def.then(test.handler).then(function(data){
                 test.execution.push(Date.now());
+                return data;
             }, function(e) {
 
                 if(typeof e === 'string') {
@@ -126,11 +133,11 @@
                 throw e;
             });
 
-        }, Q(1)).then(function() {
-            generateReport(tests);
+        }, promise(1)).then(function() {
+            return generateReport(tests);
         }, function(e) {
-            generateReport(tests);
             console.error(e);
+            return generateReport(tests);
         });
 
     };
