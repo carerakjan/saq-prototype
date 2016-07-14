@@ -1,44 +1,86 @@
-var t1 = new SAQ().suite('Check the set of async calls', function(test) {
+var suite = SQA.suite;
+var run = SQA.run;
 
-    test('Check if user is logged', function(assert) {
-        if($('.fn-logout').length) {
-            assert.ok();
-            $('.fn-logout')[0].click();
-        } else {
-            assert.fail();
-        }
+suite('xqsuite1', function(test) {
+
+    test('test1', function() {
+        if(1) {
+
+        } else throw Error();
     });
 
-    test('Check logout confirmation popup is appeared after 500 ms', function(assert) {
+    test('test5', function(defered) {
 
-        setTimeout(function() {
-
-            assert.ok();
-
-        }, 500);
-
-        setTimeout(function() {
-
-            assert.fail();
-            console.log(222);
-
-        }, 1500);
+        dslfkdsfsd.asdas();
 
 
-    });
-
-    test('Get some json', function (assert) {
-
-        $.get('https://code.jquery.com/jquery-3.0.0.min.js', function(data){
-            if(data) {
-                assert.ok(data);
+        setTimeout(function(){
+            try {
+            if(!1){
+                defered1.resolve();
+            } else {
+                throw Error('reject');
             }
-            else {
-                assert.fail();
+
+
+            } catch(e) {
+                defered.reject(e);
+            }
+        }, 5)
+    }, {
+        async:true
+    });
+
+    test('test2', function(defered) {
+        $.get('https://code.jquery.com/jquery-3.0.0.min.js', function(data){
+            try {
+
+                if(data) {
+                    defered.resolve();
+                }
+
+            } catch (e) {
+                defered.reject(e);
             }
         });
+    }, {
+        async:true
+    });
 
+    suite('suite3', function(test){
+
+        test('test4', function(defered) {
+            $.get('https://code.jquery.com/jquery-3.0.0.min.js', function(data){
+                try {
+                    if(data1) {
+                        defered.resolve();
+                    }
+                } catch(e) {
+                    defered.reject(e);
+                }
+            });
+        }, {
+            async:true
+        });
+    })
+});
+
+suite('suite2', function(test) {
+    test('test3', function(defered) {
+        $.get('https://code.jquery.com/jquery-3.0.0.min.js', function(data){
+            try {
+                if(data) {
+                    defered.resolve();
+                }
+            } catch(e) {
+                defered.reject(e);
+            }
+
+        });
+    }, {
+        async:true
     });
 
 });
 
+run();

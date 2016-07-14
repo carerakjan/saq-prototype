@@ -1,31 +1,32 @@
-(function (){
+(function (definition) {
 
-    function Assert() {
-        this.execution = [Date.now()];
-        this.deferred = Q.defer();
+    if (typeof exports === "object") {
+        module.exports = definition();
+
+    } else if (typeof define === "function" && define.amd) {
+        define(definition);
+
+    } else {
+        SQA = definition();
     }
 
-    Assert.prototype.ok = function() {
-        if(this._fulfilled()) return;
-        this.execution.push(Date.now());
-        this.deferred.resolve.apply(this.deferred, arguments);
+})(function (){
+
+    var log = [];
+
+    var config = {
+        stepTimeout: 30
     };
 
-    Assert.prototype.fail = function() {
-        if(this._fulfilled()) return;
-        this.execution.push(Date.now());
-        this.deferred.reject(this.deferred, arguments);
+    var defer = function() {
+        return Q.defer();
     };
 
-    Assert.prototype._fulfilled = function() {
-        return /^fulfilled|rejected$/.test(this._inspect().state);
+    var promise = function(value) {
+        return Q(value);
     };
 
-    Assert.prototype._inspect = function() {
-        return this.deferred.promise.inspect();
-    };
-
-    Assert.prototype._term = function(measure) {
+    var term = function(measure) {
         var term = this.execution[1] - this.execution[0];
         switch (measure) {
             case 'min': term /= 60000; break;
@@ -35,55 +36,173 @@
         return term + ' ' + measure;
     };
 
-    var test = function(indexOfSuite) {
+    var done = function(deferred) {
+        return function(error) {
+            if(!error) deferred.resolve();
+            else deferred.reject(error);
+        }
+    };
+
+    var startTimer = function(deferred) {
+        setTimeout(function(){
+            deferred.reject('Async callback was not invoked within timeout');
+        }, config.stepTimeout * 1000);
+    };
+
+    var defineStep = function(indexOfSuite) {
+
         return function(caseTitle, callback) {
-            var assert = new Assert();
-            this.log[indexOfSuite].cases.push({
+
+            log[indexOfSuite].cases.push({
+                suite: indexOfSuite,
                 title: caseTitle,
-                assert: assert
-            });
-            callback(assert);
-        }.bind(this);
-    };
-
-    var SAQ = window.SAQ = function() {
-        this.log = [];
-    };
-
-    SAQ.prototype.suite = function(suiteTitle, callback) {
-        var suit = {
-            title: suiteTitle,
-            cases: []
-        };
-        this.log.push(suit);
-        callback(test.bind(this)(this.log.length-1));
-        return this;
-    };
-
-    SAQ.prototype.report = function() {
-
-        var result = {};
-        var def = Q.defer();
-        var log = this.log;
-
-        log.forEach(function(suite, i) {
-            !result[suite.title] && (result[suite.title] = {});
-            suite.cases.forEach(function(test, j) {
-                var term = [test.assert._term('sec')];
-                test.assert.deferred.promise.then(function(){
-                    result[suite.title][test.title] = ['ok'].concat(term);
-                }, function(){
-                    result[suite.title][test.title] = ['err'].concat(term);
-                });
-
-                if(i === log.length-1 && j === suite.cases.length-1) {
-                    def.resolve(result);
+                handler: function() {
+                    var deferred = defer();
+                    startTimer(deferred);
+                    callback(done(deferred));
+                    return deferred.promise;
                 }
             });
-        });
 
-        return def.promise
+        };
 
     };
 
-})();
+    var afterAll = function(indexOfSuite) {
+
+        return function(callback) {
+
+            log[indexOfSuite].afterAll.push({
+                skipInReport: true,
+                handler: function () {
+                    var deferred = defer();
+                    startTimer(deferred);
+                    callback(done(deferred));
+                    return deferred.promise;
+                }
+            });
+
+        };
+
+    };
+
+    var suite = function(suiteTitle, callback) {
+
+        var suit = {
+            title: suiteTitle,
+            afterAll: [],
+            cases: []
+        };
+
+        log.push(suit);
+
+        callback({
+            step: defineStep(log.length-1),
+            afterAll: afterAll(log.length-1)
+        });
+    };
+
+    var generateReport = function(tests) {
+
+        tests = tests.filter(function(test) {
+            return !test.skipInReport;
+        });
+
+        var report = {};
+        var isBreak = false;
+
+        tests.forEach(function(test) {
+
+            if(isBreak) return;
+
+            !report[log[test.suite].title] &&
+            (report[log[test.suite].title] = {
+                index: test.suite,
+                steps: []
+            });
+
+            var t = {title: test.title, result: []};
+            t.result.push(term.bind(test)('sec'));
+            if(test.error) {
+                t.result.push('err');
+                t.result.push(test.error);
+                isBreak = true;
+            } else {
+                t.result.push('ok');
+            }
+
+            report[log[test.suite].title].steps.push(t);
+        });
+
+        return report;
+    };
+
+    var run = function() {
+
+        var tests = log.reduce(function(test, suite) {
+            return test.concat(suite.cases, suite.afterAll);
+        },[]);
+
+        return tests.reduce(function(def, test) {
+            !test.skipInReport && !test.execution && (test.execution = []);
+
+            return def.then(function(){
+                !test.skipInReport && test.execution.push(Date.now());
+                return test.handler.apply(null, arguments);
+            }).then(function(data){
+                !test.skipInReport && test.execution.push(Date.now());
+                return data;
+            }, function(e) {
+
+                if(typeof e === 'string') {
+                    e = new Error(e);
+                }
+
+                if(!e || !(e instanceof Error) || !e.message) {
+                    e = new Error('Unnamed error');
+                }
+
+                if(e && !e.dirty) {
+                    e.dirty = true;
+                    test.error = e.message;
+                }
+
+                !test.skipInReport && test.execution.push(Date.now());
+                throw e;
+            });
+
+        }, promise(1)).then(function() {
+            return generateReport(tests);
+        }, function(e) {
+            console.error(e);
+            return generateReport(tests);
+        });
+
+    };
+
+    var setup = function(options) {
+        extend(config, options);
+    };
+
+    var isObject = function(arg) {
+        return typeof arg === 'object' && arg !== null;
+    }
+
+    var extend = function(origin, add) {
+        // Don't do anything if add isn't an object
+        if (!add || !isObject(add)) return origin;
+
+        var keys = Object.keys(add);
+        var i = keys.length;
+        while (i--) {
+            origin[keys[i]] = add[keys[i]];
+        }
+        return origin;
+    }
+
+    return {
+        setup: setup,
+        suite: suite,
+        run: run
+    };
+});
