@@ -49,6 +49,15 @@
         }, config.stepTimeout * 1000);
     };
 
+    var defineHandler = function(callback) {
+        return function() {
+            var deferred = defer();
+            startTimer(deferred);
+            callback(done(deferred));
+            return deferred.promise;
+        };
+    };
+
     var defineStep = function(indexOfSuite) {
 
         return function(caseTitle, callback) {
@@ -56,30 +65,37 @@
             log[indexOfSuite].cases.push({
                 suite: indexOfSuite,
                 title: caseTitle,
-                handler: function() {
-                    var deferred = defer();
-                    startTimer(deferred);
-                    callback(done(deferred));
-                    return deferred.promise;
-                }
+                handler: defineHandler(callback)
             });
 
         };
 
     };
 
-    var afterAll = function(indexOfSuite) {
+    var defineAfterAll = function(indexOfSuite) {
 
         return function(callback) {
 
             log[indexOfSuite].afterAll.push({
+                suite: indexOfSuite,
+                title: 'Teardown step',
                 skipInReport: true,
-                handler: function () {
-                    var deferred = defer();
-                    startTimer(deferred);
-                    callback(done(deferred));
-                    return deferred.promise;
-                }
+                handler: defineHandler(callback)
+            });
+
+        };
+
+    };
+
+    var defineBeforeAll = function(indexOfSuite) {
+
+        return function(callback) {
+
+            log[indexOfSuite].beforeAll.push({
+                suite: indexOfSuite,
+                title: 'Setup step',
+                skipInReport: true,
+                handler: defineHandler(callback)
             });
 
         };
@@ -90,6 +106,7 @@
 
         var suit = {
             title: suiteTitle,
+            beforeAll: [],
             afterAll: [],
             cases: []
         };
@@ -98,7 +115,8 @@
 
         callback({
             step: defineStep(log.length-1),
-            afterAll: afterAll(log.length-1)
+            afterAll: defineAfterAll(log.length-1),
+            beforeAll: defineBeforeAll(log.length-1)
         });
     };
 
@@ -140,17 +158,17 @@
     var run = function() {
 
         var tests = log.reduce(function(test, suite) {
-            return test.concat(suite.cases, suite.afterAll);
+            return test.concat(suite.beforeAll, suite.cases, suite.afterAll);
         },[]);
 
         return tests.reduce(function(def, test) {
-            !test.skipInReport && !test.execution && (test.execution = []);
+            !test.execution && (test.execution = []);
 
             return def.then(function(){
-                !test.skipInReport && test.execution.push(Date.now());
+                test.execution.push(Date.now());
                 return test.handler.apply(null, arguments);
             }).then(function(data){
-                !test.skipInReport && test.execution.push(Date.now());
+                test.execution.push(Date.now());
                 return data;
             }, function(e) {
 
@@ -167,7 +185,9 @@
                     test.error = e.message;
                 }
 
-                !test.skipInReport && test.execution.push(Date.now());
+                test.execution.push(Date.now());
+                test.skipInReport && (test.skipInReport = !test.skipInReport);
+
                 throw e;
             });
 
@@ -186,7 +206,7 @@
 
     var isObject = function(arg) {
         return typeof arg === 'object' && arg !== null;
-    }
+    };
 
     var extend = function(origin, add) {
         // Don't do anything if add isn't an object
@@ -198,7 +218,7 @@
             origin[keys[i]] = add[keys[i]];
         }
         return origin;
-    }
+    };
 
     return {
         setup: setup,
