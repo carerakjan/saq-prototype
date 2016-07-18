@@ -43,16 +43,18 @@
         }
     };
 
-    var startTimer = function(deferred) {
+    var startTimer = function(deferred, stepTimeout) {
+        stepTimeout = stepTimeout || config.stepTimeout;
         setTimeout(function(){
             deferred.reject('Async callback was not invoked within timeout');
-        }, config.stepTimeout * 1000);
+        }, stepTimeout * 1000);
     };
 
-    var defineHandler = function(callback) {
+    var defineHandler = function(callback, options) {
+        options = options || {};
         return function() {
             var deferred = defer();
-            startTimer(deferred);
+            startTimer(deferred, options.stepTimeout ? options.stepTimeout : null);
             callback(done(deferred));
             return deferred.promise;
         };
@@ -60,12 +62,12 @@
 
     var defineStep = function(indexOfSuite) {
 
-        return function(caseTitle, callback) {
+        return function(caseTitle, callback, options) {
 
             log[indexOfSuite].cases.push({
                 suite: indexOfSuite,
                 title: caseTitle,
-                handler: defineHandler(callback)
+                handler: defineHandler(callback, options)
             });
 
         };
@@ -74,13 +76,13 @@
 
     var defineAfterAll = function(indexOfSuite) {
 
-        return function(callback) {
+        return function(callback, options) {
 
             log[indexOfSuite].afterAll.push({
                 suite: indexOfSuite,
                 title: 'Teardown step',
                 skipInReport: true,
-                handler: defineHandler(callback)
+                handler: defineHandler(callback, options)
             });
 
         };
@@ -89,13 +91,13 @@
 
     var defineBeforeAll = function(indexOfSuite) {
 
-        return function(callback) {
+        return function(callback, options) {
 
             log[indexOfSuite].beforeAll.push({
                 suite: indexOfSuite,
                 title: 'Setup step',
                 skipInReport: true,
-                handler: defineHandler(callback)
+                handler: defineHandler(callback, options)
             });
 
         };
