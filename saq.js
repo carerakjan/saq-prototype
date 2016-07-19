@@ -136,8 +136,9 @@
 
             if(isBreak) return;
 
-            !report[log[test.suite].title] &&
-            (report[log[test.suite].title] = {
+            !report[test.suite] &&
+            (report[test.suite] = {
+                title: log[test.suite].title,
                 index: test.suite,
                 steps: []
             });
@@ -152,7 +153,7 @@
                 t.result.push('ok');
             }
 
-            report[log[test.suite].title].steps.push(t);
+            report[test.suite].steps.push(t);
         });
 
         return report;
@@ -186,10 +187,9 @@
                 if(e && !e.dirty) {
                     e.dirty = true;
                     test.error = e.message;
+                    test.execution.push(Date.now());
+                    test.skipInReport && (test.skipInReport = !test.skipInReport);
                 }
-
-                test.execution.push(Date.now());
-                test.skipInReport && (test.skipInReport = !test.skipInReport);
 
                 throw e;
             });
