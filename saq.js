@@ -36,16 +36,17 @@
         return term + ' ' + measure;
     };
 
-    var done = function(deferred) {
+    var done = function(deferred, timer) {
         return function(error) {
             if(!error) deferred.resolve();
             else deferred.reject(error);
+            clearTimeout(timer);
         }
     };
 
     var startTimer = function(deferred, stepTimeout) {
         stepTimeout = stepTimeout || config.stepTimeout;
-        setTimeout(function(){
+        return setTimeout(function(){
             deferred.reject('Async callback was not invoked within timeout');
         }, stepTimeout * 1000);
     };
@@ -54,8 +55,8 @@
         options = options || {};
         return function() {
             var deferred = defer();
-            startTimer(deferred, options.stepTimeout ? options.stepTimeout : null);
-            callback(done(deferred));
+            var timer = startTimer(deferred, options.stepTimeout ? options.stepTimeout : null);
+            callback(done(deferred, timer));
             return deferred.promise;
         };
     };
